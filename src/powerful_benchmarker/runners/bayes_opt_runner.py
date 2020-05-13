@@ -73,10 +73,16 @@ def remove_keywords(YR):
 
 
 class BayesOptRunner(SingleExperimentRunner):
-    def __init__(self, bayes_opt_iters, reproductions, **kwargs):
+    def __init__(self, 
+            bayes_opt_iters, 
+            reproductions, 
+            meta_testing_methods=("SeparateEmbeddings", "ConcatenateEmbeddings"), 
+            **kwargs
+        ):
         super().__init__(**kwargs)
         self.bayes_opt_iters = bayes_opt_iters
         self.reproductions = reproductions
+        self.meta_testing_methods = meta_testing_methods
         self.experiment_name = self.YR.args.experiment_name
         self.bayes_opt_root_experiment_folder = os.path.join(self.root_experiment_folder, self.experiment_name)
         if self.global_db_path is None:
@@ -190,7 +196,7 @@ class BayesOptRunner(SingleExperimentRunner):
         exp_names = [os.path.basename(e) for e in exp_names]
         results, summary = {}, {}
 
-        for eval_type in ["meta", "meta_ConcatenateEmbeddings"]:
+        for eval_type in self.YR.args.meta_testing_method:
             results[eval_type] = {}
             summary[eval_type] = collections.defaultdict(lambda: collections.defaultdict(list))
             table_name = self.eval_record_group_dicts[eval_type]["test"]
@@ -334,13 +340,12 @@ class BayesOptRunner(SingleExperimentRunner):
 
 
     def test_model(self, sub_experiment_name):
-        for meta_testing_method in [None, "ConcatenateEmbeddings"]:
-            local_YR = self.get_simplified_yaml_reader(sub_experiment_name)
-            local_YR.args.evaluate = True
-            local_YR.args.resume_training = None
-            local_YR.args.splits_to_eval = ["test"]
-            local_YR.args.__dict__["meta_testing_method~OVERRIDE~"] = meta_testing_method
-            super().run_new_experiment(local_YR)
+        local_YR = self.get_simplified_yaml_reader(sub_experiment_name)
+        local_YR.args.evaluate = True
+        local_YR.args.resume_training = None
+        local_YR.args.splits_to_eval = ["test"]
+        local_YR.args.__dict__["meta_testing_method~OVERRIDE~"] = self.YR.args.meta_testing_method
+        super().run_new_experiment(local_YR)
 
 
     def reproduce_results(self, sub_experiment_name):
